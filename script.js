@@ -1,6 +1,6 @@
 // Configuration
-const DEFAULT_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/api';
-const LOCAL_API_SERVER = 'http://localhost:3000/api';
+const DEFAULT_API_SERVER = 'https://picozen-api.netlify.app/api';
+const FALLBACK_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/api';
 
 // State management
 let apiServer = localStorage.getItem('apiServer') || DEFAULT_API_SERVER;
@@ -19,7 +19,7 @@ init();
 async function init() {
     // Load saved API server
     document.getElementById('api-server-input').value = apiServer === DEFAULT_API_SERVER ? '' : apiServer;
-    document.getElementById('api-server-display').textContent = apiServer === DEFAULT_API_SERVER ? 'Default (GitHub)' : apiServer;
+    document.getElementById('api-server-display').textContent = apiServer === DEFAULT_API_SERVER ? 'Default (Netlify)' : apiServer;
     
     // Load saved sideload server
     document.getElementById('sideload-server-input').value = sideloadHost;
@@ -101,8 +101,15 @@ async function loadApps(category = '') {
         // Try to load from API server first
         let appsData = await fetchAppsFromServer(category);
         
-        // Fallback to mock data if server fails
+        // Fallback to GitHub Pages API if Netlify fails
         if (!appsData) {
+            console.log('Netlify API failed, trying fallback...');
+            appsData = await fetchAppsFromFallback(category);
+        }
+        
+        // Final fallback to mock data
+        if (!appsData) {
+            console.log('All APIs failed, using mock data...');
             appsData = getMockApps(category);
         }
         
@@ -111,7 +118,7 @@ async function loadApps(category = '') {
         
     } catch (error) {
         console.error('Error loading apps:', error);
-        // Use mock data as fallback
+        // Use mock data as final fallback
         apps = getMockApps(category);
         renderApps();
     }
@@ -119,7 +126,23 @@ async function loadApps(category = '') {
 
 async function fetchAppsFromServer(category = '') {
     try {
-        let url = `${apiServer}/apps.json`;
+        let url = `${apiServer}/apps?limit=50`;
+        if (category) url += `&category=${encodeURIComponent(category)}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        return data.success ? data.apps : null;
+    } catch (error) {
+        console.error('Netlify API fetch failed:', error);
+        return null;
+    }
+}
+
+async function fetchAppsFromFallback(category = '') {
+    try {
+        let url = `${FALLBACK_API_SERVER}/apps.json`;
         
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -138,7 +161,7 @@ async function fetchAppsFromServer(category = '') {
         
         return filteredApps;
     } catch (error) {
-        console.error('Server fetch failed:', error);
+        console.error('Fallback API fetch failed:', error);
         return null;
     }
 }
@@ -515,7 +538,7 @@ function changeApiServer() {
     } else {
         apiServer = DEFAULT_API_SERVER;
         localStorage.removeItem('apiServer');
-        document.getElementById('api-server-display').textContent = 'Default (GitHub)';
+        document.getElementById('api-server-display').textContent = 'Default (Netlify)';
     }
     
     if (currentSection === 'apps') {
