@@ -4,7 +4,7 @@
         <meta charset="UTF-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>PicoZen Web (Beta) - YCCC VR Lab</title>
+        <title>PicoZen Web - YCCC VR Lab</title>
         <meta name="description" content="A web interface for PicoZen's sideloading function - YCCC VR Lab Fork">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="stylesheet" href="/style.css">
@@ -12,70 +12,110 @@
     <body>
         <div id="left">
             <span class="title">PicoZen</span>
-            <img class="icon" src="/assets/icon.svg" draggable="false" />
+            <div class="icon-placeholder">📱</div>
 
             <div class="section-list">
                 <a id="sideload-link" class="active" href="/" title="Sideload">
-                    <svg viewbox="0 0 24 24"><use href="/assets/sections/sideload.svg#img" style="--color-fill: var(--color-text);"></use></svg>
+                    <span class="icon-text">📂</span>
                     <span>Sideload</span>
                 </a>
                 <div class="spacer"></div>
                 <a id="download-link" href="https://github.com/YCCCVRLab/PicoZen/releases/latest" title="Download App">
-                    <svg viewbox="0 0 24 24"><use href="/assets/sections/download.svg#img" style="--color-fill: var(--color-text);"></use></svg>
+                    <span class="icon-text">⬇️</span>
                     <span>Download App</span>
                 </a>
                 <a id="discord-link" href="https://discord.gg/D4DBD2N6sA" target="_blank" title="Discord">
-                    <svg viewbox="0 0 24 24"><use href="/assets/sections/discord.svg#img" style="--color-fill: var(--color-text);"></use></svg>
+                    <span class="icon-text">💬</span>
                     <span>Discord</span>
                 </a>
-                <a id="donate-link" href="https://github.com/YCCCVRLab" title="YCCC VR Lab">
-                    <svg viewbox="0 0 24 24"><use href="/assets/sections/donate.svg#img" style="--color-fill: var(--color-text);"></use></svg>
+                <a id="vr-lab-link" href="https://github.com/YCCCVRLab" title="YCCC VR Lab">
+                    <span class="icon-text">🥽</span>
                     <span>VR Lab</span>
                 </a>
             </div>
             <button id="settings-btn" class="settings" aria-label="Settings" title="Settings">
-                <svg viewbox="0 0 60 60"><use href="/assets/settings.svg#img" style="--color-fill: var(--color-text);"></use></svg>
+                <span class="icon-text">⚙️</span>
             </button>
         </div>
         <div id="right">
-            <h1>Sideload</h1>
+            <div id="header">
+                <h1>Sideload Files</h1>
+                <button id="refresh-btn" title="Refresh (Ctrl+R)" aria-label="Refresh file list">
+                    <span class="icon-text">🔄</span>
+                </button>
+            </div>
             <div id="sideload-list" tabindex="-1"></div>
             <div id="sideload-error">
-                <span tabindex="0" aria-label="No files found">No files found</span>
+                <span tabindex="0" aria-label="Setup instructions">
+                    <strong>Welcome to PicoZen Web!</strong><br><br>
+                    To get started:<br>
+                    1. Install the PicoZen app on your headset<br>
+                    2. Enable sideloading in the app<br>
+                    3. Note the IP address shown in the app<br>
+                    4. Click the settings gear ⚙️ and enter that IP address
+                </span>
             </div>
         </div>
 
         <div id="settings-overlay">
             <div id="settings-overlay-backdrop"></div>
-            <dia id="settings" aria-label="Settings. Press escape to close" tabindex="1">
+            <div id="settings" aria-label="Settings. Press escape to close" tabindex="1">
                 <h1>Settings</h1>
                 <button class="close" aria-label="Close settings">
-                    <svg viewbox="0 0 24 24"><use href="/assets/close.svg#img" style="--color-fill: var(--color-text);"></use></svg>
+                    <span class="icon-text">✖️</span>
                 </button>
 
-                <span class="header" tabindex="0" aria-label="Sideload settings">Sideload</span>
-                <div class="settings-item" id="sideload-type" tabindex="0" aria-label="Server type: Proxied FTP">
-                    <b>Server type:</b>
-                    <div class="dark">Proxied FTP</div>
-                </div>
-                <div class="settings-item" id="sideload-server">
-                    <input type="text" placeholder="Sideload server" id="sideload-server-input" />
-                    <a id="sideload-server-change" tabindex="0">Change</a>
+                <div class="settings-section">
+                    <span class="header" tabindex="0" aria-label="Sideload settings">Sideload Configuration</span>
+                    <div class="settings-item" id="sideload-type" tabindex="0" aria-label="Server type: Direct HTTP">
+                        <b>Server type:</b>
+                        <div class="dark">Direct HTTP</div>
+                    </div>
+                    <div class="settings-item" id="sideload-server">
+                        <input type="text" placeholder="Enter headset IP address (e.g., 192.168.1.100:8080)" id="sideload-server-input" />
+                        <a id="sideload-server-change" tabindex="0">Connect</a>
+                    </div>
+                    <div class="help-text">
+                        <strong>How to find your headset's IP:</strong><br>
+                        1. Open PicoZen app on your headset<br>
+                        2. Go to Sideload section<br>
+                        3. Enable "Web Server"<br>
+                        4. Note the IP address displayed<br>
+                        5. Enter it above (including the port number)
+                    </div>
                 </div>
 
-                <span class="header" tabindex="0" aria-label="About PicoZen">About</span>
-                <a href="https://github.com/YCCCVRLab/PicoZen-Web" class="settings-item">
-                    <b>GitHub repository</b>
-                </a>
-                <a href="https://github.com/YCCCVRLab/PicoZen" class="settings-item">
-                    <b>PicoZen (App)</b>
-                </a>
-                <a href="https://discord.gg/D4DBD2N6sA" class="settings-item">
-                    <b>Discord</b>
-                </a>
-                <a href="https://github.com/YCCCVRLab" class="settings-item">
-                    <b>YCCC VR Lab</b>
-                </a>
+                <div class="settings-section">
+                    <span class="header" tabindex="0" aria-label="About PicoZen">About</span>
+                    <a href="https://github.com/YCCCVRLab/PicoZen-Web" class="settings-item">
+                        <b>Web Interface (GitHub)</b>
+                    </a>
+                    <a href="https://github.com/YCCCVRLab/PicoZen" class="settings-item">
+                        <b>PicoZen App (GitHub)</b>
+                    </a>
+                    <a href="https://discord.gg/D4DBD2N6sA" class="settings-item">
+                        <b>Discord Community</b>
+                    </a>
+                    <a href="https://github.com/YCCCVRLab" class="settings-item">
+                        <b>YCCC VR Lab</b>
+                    </a>
+                </div>
+
+                <div class="settings-section">
+                    <span class="header">Troubleshooting</span>
+                    <div class="help-text">
+                        <strong>Common Issues:</strong><br>
+                        • Both devices must be on the same WiFi network<br>
+                        • Firewall may block connections<br>
+                        • Some routers block device-to-device communication<br>
+                        • Try using the headset's hotspot mode<br><br>
+                        
+                        <strong>For Developers:</strong><br>
+                        • Use localhost:8080 for local testing<br>
+                        • CORS must be enabled on the server<br>
+                        • API should respond to GET requests with JSON
+                    </div>
+                </div>
             </div>
         </div>
 
