@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoZen Web - YCCC VR Lab (Simple Version)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: #1a1a1a;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            color: #b0b0b0;
+            font-size: 1.1em;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            flex: 1;
+        }
+        
+        .card {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            border: 1px solid #3a3a3a;
+        }
+        
+        .card h2 {
+            color: #4a9eff;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        
+        .status.working { background: #2d5016; color: #4caf50; }
+        .status.error { background: #5d1a1a; color: #f44336; }
+        .status.warning { background: #5d4e1a; color: #ff9800; }
+        
+        .server-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .server-input input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #3a3a3a;
+            border-radius: 6px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-size: 16px;
+        }
+        
+        .server-input input:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+        
+        .server-input button {
+            padding: 12px 24px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        
+        .server-input button:hover {
+            background: #357ae8;
+        }
+        
+        .file-list {
+            background: #1a1a1a;
+            border-radius: 8px;
+            min-height: 200px;
+            padding: 20px;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .file-item:hover {
+            background: #3a3a3a;
+        }
+        
+        .file-item.folder::before {
+            content: "📁 ";
+        }
+        
+        .file-item.file::before {
+            content: "📄 ";
+        }
+        
+        .instructions {
+            line-height: 1.8;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        
+        .links {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .links a {
+            color: #4a9eff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 1px solid #4a9eff;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .links a:hover {
+            background: #4a9eff;
+            color: white;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            border-top: 1px solid #3a3a3a;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🥽 PicoZen Web</h1>
+        <p>YCCC VR Lab - Wireless VR Content Management</p>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2>📡 Connection Status</h2>
+            <div id="status" class="status warning">Ready to Connect</div>
+            <div class="server-input">
+                <input type="text" id="serverInput" placeholder="Enter headset IP (e.g., 192.168.1.100:8080)">
+                <button onclick="connectToServer()">Connect</button>
+            </div>
+            <div id="connectionInfo" style="display: none;">
+                <p><strong>Connected to:</strong> <span id="connectedServer"></span></p>
+                <button onclick="refreshFiles()" style="margin-top: 10px; padding: 8px 16px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Refresh</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📁 Files & Folders</h2>
+            <div id="fileList" class="file-list">
+                <div style="text-align: center; color: #666; padding: 40px;">
+                    <p>No connection established yet.</p>
+                    <p>Connect to your headset to browse files.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📋 Setup Instructions</h2>
+            <div class="instructions">
+                <ol>
+                    <li><strong>Install PicoZen:</strong> Download and sideload the PicoZen app to your VR headset</li>
+                    <li><strong>Enable Web Server:</strong> Open PicoZen app → Sideload section → Enable "Web Server"</li>
+                    <li><strong>Note IP Address:</strong> The app will display an IP address (e.g., 192.168.1.100:8080)</li>
+                    <li><strong>Connect:</strong> Enter that IP address above and click "Connect"</li>
+                    <li><strong>Browse Files:</strong> Navigate folders and click files to download them</li>
+                </ol>
+                
+                <div class="links">
+                    <a href="https://github.com/YCCCVRLab/PicoZen/releases/latest">📱 Download PicoZen App</a>
+                    <a href="https://github.com/YCCCVRLab/PicoZen-Web">💻 View Source Code</a>
+                    <a href="https://discord.gg/D4DBD2N6sA">💬 Join Discord</a>
+                    <a href="https://github.com/YCCCVRLab">🏫 YCCC VR Lab</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>YCCC VR Lab | Room 112, Wells Campus | Powered by PicoZen</p>
+    </div>
+    
+    <script>
+        let currentServer = '';
+        let currentPath = '/';
+        
+        // Load saved server from localStorage
+        window.onload = function() {
+            const saved = localStorage.getItem('picozen_server');
+            if (saved) {
+                document.getElementById('serverInput').value = saved;
+            }
+        };
+        
+        async function connectToServer() {
+            const serverInput = document.getElementById('serverInput');
+            const server = serverInput.value.trim();
+            
+            if (!server) {
+                alert('Please enter a server IP address');
+                return;
+            }
+            
+            currentServer = server;
+            localStorage.setItem('picozen_server', server);
+            
+            const status = document.getElementById('status');
+            status.textContent = 'Connecting...';
+            status.className = 'status warning';
+            
+            try {
+                let url = server.startsWith('http') ? server : `http://${server}`;
+                
+                const response = await fetch(url + '/?action=list', {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    status.textContent = '✅ Connected Successfully';
+                    status.className = 'status working';
+                    
+                    document.getElementById('connectedServer').textContent = server;
+                    document.getElementById('connectionInfo').style.display = 'block';
+                    
+                    await loadFiles();
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                status.textContent = `❌ Connection Failed: ${error.message}`;
+                status.className = 'status error';
+                
+                document.getElementById('fileList').innerHTML = `
+                    <div style="text-align: center; color: #f44336; padding: 40px;">
+                        <p><strong>Connection Failed</strong></p>
+                        <p>Could not connect to: ${server}</p>
+                        <br>
+                        <p><strong>Troubleshooting:</strong></p>
+                        <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                            <li>Make sure PicoZen app is running</li>
+                            <li>Check that web server is enabled</li>
+                            <li>Verify both devices are on same WiFi</li>
+                            <li>Try accessing <a href="http://${server}" target="_blank" style="color: #4a9eff;">http://${server}</a> directly</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadFiles() {
+            try {
+                let url = currentServer.startsWith('http') ? currentServer : `http://${currentServer}`;
+                url += currentPath === '/' ? '/' : currentPath;
+                url += '?action=list';
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                displayFiles(data);
+            } catch (error) {
+                document.getElementById('fileList').innerHTML = `
+                    <div style="color: #f44336; text-align: center; padding: 20px;">
+                        Error loading files: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function displayFiles(data) {
+            const fileList = document.getElementById('fileList');
+            let html = '';
+            
+            // Add back button if not in root
+            if (currentPath !== '/') {
+                html += `
+                    <div class="file-item folder" onclick="navigateUp()">
+                        <span>📁 ../</span>
+                        <span>Go Back</span>
+                    </div>
+                `;
+            }
+            
+            // Add directories
+            if (data.dirs) {
+                data.dirs.forEach(dir => {
+                    html += `
+                        <div class="file-item folder" onclick="navigateToFolder('${dir.path || dir.name}')">
+                            <span>📁 ${dir.name}</span>
+                            <span>Folder</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            // Add files
+            if (data.files) {
+                data.files.forEach(file => {
+                    const size = formatFileSize(file.size || 0);
+                    html += `
+                        <div class="file-item file" onclick="downloadFile('${file.path || file.name}', '${file.name}')">
+                            <span>📄 ${file.name}</span>
+                            <span>${size}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (!html) {
+                html = '<div style="text-align: center; color: #666; padding: 40px;">No files or folders found</div>';
+            }
+            
+            fileList.innerHTML = html;
+        }
+        
+        function navigateUp() {
+            const parts = currentPath.split('/').filter(p => p);
+            parts.pop();
+            currentPath = '/' + parts.join('/');
+            if (currentPath === '/') currentPath = '/';
+            loadFiles();
+        }
+        
+        function navigateToFolder(path) {
+            currentPath = path.startsWith('/') ? path : currentPath + '/' + path;
+            currentPath = currentPath.replace(/\/+/g, '/');
+            loadFiles();
+        }
+        
+        function downloadFile(path, filename) {
+            try {
+                let url = currentServer.startsWith('http') ? currentServer : `http://${currentServer}`;
+                url += path.startsWith('/') ? path : '/' + path;
+                url += '?action=download';
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.target = '_blank';
+                a.click();
+                
+                // Show notification
+                const status = document.getElementById('status');
+                const originalText = status.textContent;
+                status.textContent = `⬇️ Downloading ${filename}...`;
+                setTimeout(() => {
+                    status.textContent = originalText;
+                }, 3000);
+            } catch (error) {
+                alert(`Download failed: ${error.message}`);
+            }
+        }
+        
+        function refreshFiles() {
+            if (currentServer) {
+                loadFiles();
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Allow Enter key in input
+        document.getElementById('serverInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connectToServer();
+            }
+        });
+    </script>
+</body>
+</html>
