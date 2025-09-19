@@ -1,198 +1,324 @@
-// Default to localhost for local development, but allow custom servers
-const DEFAULT_FILES_URL = "http://localhost:8080";
+// Configuration
+const DEFAULT_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/mock-api';
+const LOCAL_API_SERVER = 'http://localhost:3000/api';
 
-let host = localStorage.getItem("sideloadServer") || "";
-let filesUrl = localStorage.getItem("filesServerUrl") || DEFAULT_FILES_URL;
-let currentPath = "/";
+// State management
+let apiServer = localStorage.getItem('apiServer') || DEFAULT_API_SERVER;
+let sideloadHost = localStorage.getItem('sideloadServer') || '';
+let currentPath = '/';
 let itemList = [];
 let isConnected = false;
 let isLoading = false;
+let currentSection = 'apps';
+let currentCategory = '';
+let apps = [];
 
-// Initialize the app
+// Initialize the application
 init();
 
 async function init() {
-    // Show initial instructions if no server is configured
-    if (!host) {
-        showSetupInstructions();
-    } else {
-        await getFileList();
+    // Load saved API server
+    document.getElementById('api-server-input').value = apiServer === DEFAULT_API_SERVER ? '' : apiServer;
+    document.getElementById('api-server-display').textContent = apiServer === DEFAULT_API_SERVER ? 'Default (GitHub)' : apiServer;
+    
+    // Load saved sideload server
+    document.getElementById('sideload-server-input').value = sideloadHost;
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Load initial content
+    if (currentSection === 'apps') {
+        await loadApps();
     }
 }
 
-function showSetupInstructions() {
-    document.querySelector("#sideload-list").style.display = "none";
-    document.querySelector("#sideload-error").style.display = "grid";
-    document.querySelector("#sideload-error > span").innerHTML = `
-        <strong>Welcome to PicoZen Web!</strong><br><br>
-        To get started:<br>
-        1. Install the PicoZen app on your headset<br>
-        2. Enable sideloading in the app<br>
-        3. Note the IP address shown in the app<br>
-        4. Click the settings gear ⚙️ and enter that IP address<br><br>
-        <em>For local testing, you can use 'localhost:8080'</em>
-    `;
+function setupEventListeners() {
+    // Section navigation
+    document.getElementById('apps-link').addEventListener('click', () => showSection('apps'));
+    document.getElementById('sideload-link').addEventListener('click', () => showSection('sideload'));
+    
+    // Settings
+    document.getElementById('settings-btn').addEventListener('click', openSettings);
+    document.getElementById('settings-overlay-backdrop').addEventListener('click', closeSettings);
+    document.querySelector('#settings > .close').addEventListener('click', closeSettings);
+    
+    // API server settings
+    document.getElementById('api-server-change').addEventListener('click', changeApiServer);
+    document.getElementById('api-server-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') changeApiServer();
+    });
+    
+    // Sideload server settings
+    document.getElementById('sideload-server-change').addEventListener('click', changeSideloadServer);
+    document.getElementById('sideload-server-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') changeSideloadServer();
+    });
+    
+    // Category filters
+    document.querySelectorAll('.category-chip').forEach(chip => {
+        chip.addEventListener('click', () => filterByCategory(chip.dataset.category));
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') closeSettings();
+    });
 }
 
-function setLoading(loading) {
-    isLoading = loading;
-    document.body.classList.toggle('loading', loading);
+// Section Management
+function showSection(section) {
+    currentSection = section;
     
-    if (loading) {
-        document.querySelector("#sideload-list").style.display = "none";
-        document.querySelector("#sideload-error").style.display = "grid";
-        document.querySelector("#sideload-error > span").innerHTML = `
-            <strong>Connecting...</strong><br><br>
-            Please wait while we connect to your headset.
+    // Update navigation
+    document.querySelectorAll('.section-list > a').forEach(link => {
+        link.classList.remove('active');
+    });
+    document.getElementById(section + '-link').classList.add('active');
+    
+    // Show/hide sections
+    document.getElementById('apps-section').style.display = section === 'apps' ? 'block' : 'none';
+    document.getElementById('sideload-section').style.display = section === 'sideload' ? 'block' : 'none';
+    
+    // Load content
+    if (section === 'apps') {
+        loadApps();
+    } else if (section === 'sideload') {
+        if (sideloadHost) {
+            getSideloadFileList();
+        } else {
+            showSideloadInstructions();
+        }
+    }
+}
+
+// App Store Functionality
+async function loadApps(category = '') {
+    const appsList = document.getElementById('apps-list');
+    appsList.innerHTML = '<div class="loading-message">Loading apps...</div>';
+    
+    try {
+        // Try to load from API server first
+        let appsData = await fetchAppsFromServer(category);
+        
+        // Fallback to mock data if server fails
+        if (!appsData) {
+            appsData = getMockApps(category);
+        }
+        
+        apps = appsData;
+        renderApps();
+        
+    } catch (error) {
+        console.error('Error loading apps:', error);
+        appsList.innerHTML = `
+            <div class="error-message">
+                Failed to load apps. Using offline mode.<br>
+                <button onclick="loadApps('${category}')" style="margin-top: 10px; padding: 8px 16px; background: var(--color-link); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Retry
+                </button>
+            </div>
         `;
     }
 }
 
-async function getFileList() {
-    if (isLoading) return;
+async function fetchAppsFromServer(category = '') {
+    try {
+        let url = `${apiServer}/apps?limit=50`;
+        if (category) url += `&category=${encodeURIComponent(category)}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        return data.success ? data.apps : null;
+    } catch (error) {
+        console.error('Server fetch failed:', error);
+        return null;
+    }
+}
+
+function getMockApps(category = '') {
+    const mockApps = [
+        {
+            id: 1,
+            title: 'UbiSim',
+            developer: 'UbiSim',
+            category: 'Education',
+            shortDescription: 'Immersive VR nursing simulation platform for clinical training and skill development',
+            description: 'UbiSim is a VR nursing simulation platform that provides immersive clinical training experiences. Practice essential nursing skills in a safe, virtual environment with realistic patient scenarios, medical equipment, and clinical procedures.',
+            version: '1.18.0.157',
+            rating: 4.8,
+            downloadCount: 1250,
+            fileSize: 157286400,
+            iconUrl: 'https://scontent-lga3-3.oculuscdn.com/v/t64.5771-25/57570314_1220899138305712_3549230735456268391_n.jpg?stp=dst-jpg_q92_s720x720_tt6&_nc_cat=108&ccb=1-7&_nc_sid=6e7a0a&_nc_ohc=abiM3cUS1t0Q7kNvwEG6f1M&_nc_oc=Adlp9UfoNVCqrK-SF2vUQyBzNMkhhmJ3jvqEt7cfDM_qYnrQBVzTmcC-E25FLjrIr8Y&_nc_zt=3&_nc_ht=scontent-lga3-3.oculuscdn.com&oh=00_AfbbeH7p7KL9MnwLkOJPJMiKRTOgGj_LNCz46TKiUK_knA&oe=68D3347B',
+            downloadUrl: 'https://ubisimstreamingprod.blob.core.windows.net/builds/UbiSimPlayer-1.18.0.157.apk?sv=2023-11-03&spr=https,http&se=2026-01-22T13%3A54%3A34Z&sr=b&sp=r&sig=fWimVufXCv%2BG6peu4t4R1ooXF37BEGVm2IS9e%2Fntw%2BI%3D',
+            featured: true
+        }
+    ];
     
+    return category ? mockApps.filter(app => app.category === category) : mockApps;
+}
+
+function renderApps() {
+    const appsList = document.getElementById('apps-list');
+    
+    if (apps.length === 0) {
+        appsList.innerHTML = '<div class="error-message">No apps found for this category.</div>';
+        return;
+    }
+    
+    appsList.innerHTML = apps.map(app => `
+        <div class="app-item" onclick="downloadApp('${app.downloadUrl || app.downloadUrl}', '${app.title}')">
+            <div class="app-header">
+                <div class="app-icon" style="background-image: url('${app.iconUrl}'); background-size: cover;">
+                    ${!app.iconUrl ? app.title.charAt(0) : ''}
+                </div>
+                <div class="app-info">
+                    <h3>${app.title}</h3>
+                    <div class="developer">${app.developer}</div>
+                </div>
+            </div>
+            <div class="app-category">${app.category}</div>
+            <div class="app-description">${app.shortDescription || app.description || 'No description available'}</div>
+            <div class="app-stats">
+                <div class="app-rating">${'⭐'.repeat(Math.floor(app.rating || 0))} ${(app.rating || 0).toFixed(1)}</div>
+                <div class="app-downloads">${formatDownloads(app.downloadCount)} downloads</div>
+            </div>
+            <button class="download-btn" onclick="event.stopPropagation(); downloadApp('${app.downloadUrl}', '${app.title}')">
+                Download APK
+            </button>
+        </div>
+    `).join('');
+}
+
+function filterByCategory(category) {
+    currentCategory = category;
+    
+    // Update active category
+    document.querySelectorAll('.category-chip').forEach(chip => {
+        chip.classList.remove('active');
+        if (chip.dataset.category === category) {
+            chip.classList.add('active');
+        }
+    });
+    
+    loadApps(category);
+}
+
+function downloadApp(downloadUrl, appTitle) {
+    if (!downloadUrl) {
+        alert('Download URL not available for this app');
+        return;
+    }
+    
+    // Create temporary link to trigger download
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.target = '_blank';
+    a.download = `${appTitle.replace(/[^a-zA-Z0-9]/g, '_')}.apk`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    showNotification(`Downloading ${appTitle}...`);
+}
+
+// Sideload Functionality (Original PicoZen)
+function showSideloadInstructions() {
+    document.getElementById('sideload-list').style.display = 'none';
+    document.getElementById('sideload-error').style.display = 'grid';
+}
+
+async function getSideloadFileList() {
     itemList = [];
     
-    if (!host) {
-        showSetupInstructions();
+    if (!sideloadHost) {
+        showSideloadInstructions();
         return;
     }
 
     setLoading(true);
 
     try {
-        // Construct the URL for the file server
         let url;
-        if (host.startsWith('http://') || host.startsWith('https://')) {
-            url = new URL(host);
+        if (sideloadHost.startsWith('http://') || sideloadHost.startsWith('https://')) {
+            url = new URL(sideloadHost);
         } else {
-            // Assume it's an IP address or hostname, default to http
-            url = new URL(`http://${host}`);
+            url = new URL(`http://${sideloadHost}`);
         }
         
-        // Add current path
-        if (currentPath && currentPath !== "/") {
+        if (currentPath && currentPath !== '/') {
             url.pathname = currentPath;
         }
         
-        // Try different API endpoints that might work
-        const endpoints = [
-            { action: "list", format: "json" },
-            { list: "1" },
-            { }  // Just try the base URL
-        ];
+        url.searchParams.set('action', 'list');
         
-        let data = null;
-        let lastError = null;
-        
-        for (let params of endpoints) {
-            try {
-                const testUrl = new URL(url.toString());
-                Object.keys(params).forEach(key => {
-                    testUrl.searchParams.set(key, params[key]);
-                });
-                
-                console.log("Trying endpoint:", testUrl.toString());
-                
-                let res = await fetch(testUrl.toString(), {
-                    method: 'GET',
-                    mode: 'cors',
-                    headers: {
-                        'Accept': 'application/json, text/html, */*',
-                    },
-                    signal: AbortSignal.timeout(10000) // 10 second timeout
-                });
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            mode: 'cors',
+            headers: { 'Accept': 'application/json' }
+        });
 
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
-
-                const contentType = res.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    data = await res.json();
-                    break;
-                } else {
-                    // Try to parse as text and see if it's HTML with file listings
-                    const text = await res.text();
-                    data = parseHTMLListing(text);
-                    if (data) break;
-                }
-            } catch (error) {
-                lastError = error;
-                console.warn(`Endpoint failed:`, error.message);
-            }
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        if (!data) {
-            throw lastError || new Error("No valid response from any endpoint");
-        }
-
+        const data = await response.json();
         isConnected = true;
 
         // Handle back navigation
-        if (currentPath !== "/" && currentPath !== "") {
-            let backPath = currentPath.split("/").slice(0, -1).join("/");
-            if (backPath === "") backPath = "/";
+        if (currentPath !== '/' && currentPath !== '') {
+            let backPath = currentPath.split('/').slice(0, -1).join('/');
+            if (backPath === '') backPath = '/';
 
             itemList.push({
-                type: "dir",
-                name: "../",
+                type: 'dir',
+                name: '../',
                 path: backPath,
-                size: 0,
-                lastUpdated: undefined,
+                size: 0
             });
         }
 
-        // Add directories
+        // Add directories and files
         if (data.dirs) {
-            for (let dir of data.dirs) {
+            data.dirs.forEach(dir => {
                 itemList.push({
-                    type: "dir",
+                    type: 'dir',
                     name: dir.name,
                     path: dir.path || `${currentPath}/${dir.name}`.replace(/\/+/g, '/'),
-                    size: dir.size || 0,
+                    size: dir.size || 0
                 });
-            }
+            });
         }
         
-        // Add files
         if (data.files) {
-            for (let file of data.files) {
+            data.files.forEach(file => {
                 itemList.push({
-                    type: "file",
+                    type: 'file',
                     name: file.name,
                     path: file.path || `${currentPath}/${file.name}`.replace(/\/+/g, '/'),
                     size: file.size || 0,
-                    date: file.date || file.modified,
+                    date: file.date || file.modified
                 });
-            }
+            });
         }
 
     } catch (error) {
-        console.error("Failed to fetch file list:", error);
+        console.error('Failed to fetch file list:', error);
         isConnected = false;
         
-        // Show error message with helpful information
-        document.querySelector("#sideload-list").style.display = "none";
-        document.querySelector("#sideload-error").style.display = "grid";
-        
-        let errorMsg = error.message;
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            errorMsg = "Network connection failed";
-        } else if (error.name === 'AbortError') {
-            errorMsg = "Connection timeout";
-        }
-        
-        document.querySelector("#sideload-error > span").innerHTML = `
+        document.getElementById('sideload-list').style.display = 'none';
+        document.getElementById('sideload-error').style.display = 'grid';
+        document.querySelector('#sideload-error > span').innerHTML = `
             <strong>Connection Failed</strong><br><br>
-            Could not connect to: <code>${host}</code><br><br>
+            Could not connect to: <code>${sideloadHost}</code><br><br>
             <strong>Troubleshooting:</strong><br>
             • Make sure PicoZen app is running on your headset<br>
             • Check that sideloading is enabled in the app<br>
             • Verify the IP address is correct<br>
-            • Ensure both devices are on the same network<br>
-            • Try accessing <a href="http://${host}" target="_blank">http://${host}</a> directly<br><br>
-            <em>Error: ${errorMsg}</em>
+            • Ensure both devices are on the same network<br><br>
+            <em>Error: ${error.message}</em>
         `;
         
         setLoading(false);
@@ -200,191 +326,129 @@ async function getFileList() {
     }
 
     setLoading(false);
-    renderFileList();
+    renderSideloadFileList();
 }
 
-// Simple HTML directory listing parser (fallback)
-function parseHTMLListing(html) {
-    try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const links = doc.querySelectorAll('a[href]');
-        
-        const files = [];
-        const dirs = [];
-        
-        links.forEach(link => {
-            const href = link.getAttribute('href');
-            const name = link.textContent.trim();
-            
-            if (href && name && !href.startsWith('http') && name !== '../') {
-                if (href.endsWith('/')) {
-                    dirs.push({ name: name, path: href });
-                } else {
-                    files.push({ name: name, path: href });
-                }
-            }
-        });
-        
-        if (files.length > 0 || dirs.length > 0) {
-            return { files, dirs };
-        }
-    } catch (e) {
-        console.warn("Failed to parse HTML listing:", e);
-    }
-    return null;
-}
-
-function renderFileList() {
-    document.querySelector("#sideload-list").innerHTML = "";
-
+function renderSideloadFileList() {
+    const list = document.getElementById('sideload-list');
+    
     if (itemList.length === 0) {
-        document.querySelector("#sideload-list").style.display = "none";
-        document.querySelector("#sideload-error").style.display = "grid";
-        
-        if (!host) {
-            showSetupInstructions();
-        } else if (isConnected) {
-            document.querySelector("#sideload-error > span").innerHTML = `
-                <strong>No Files Found</strong><br><br>
-                The directory appears to be empty.<br>
-                Try uploading some APK files to your headset first.
-            `;
-        }
+        document.getElementById('sideload-list').style.display = 'none';
+        document.getElementById('sideload-error').style.display = 'grid';
         return;
     }
 
-    document.querySelector("#sideload-list").style.display = "block";
-    document.querySelector("#sideload-error").style.display = "none";
+    document.getElementById('sideload-list').style.display = 'block';
+    document.getElementById('sideload-error').style.display = 'none';
 
-    for (let item of itemList) {
-        let div = document.createElement("div");
+    list.innerHTML = itemList.map(item => `
+        <div class="sideload-item ${item.type}" onclick="handleSideloadItemClick('${item.type}', '${item.path}', '${item.name}')">
+            <span class="name">${item.name}</span>
+            <span class="modified">${item.date ? new Date(item.date).toLocaleString() : ''}</span>
+            <span class="size">${bytesReadable(item.size)}</span>
+        </div>
+    `).join('');
+}
 
-        div.classList.add("sideload-item");
-        div.classList.add(item.type);
-        div.setAttribute("tabindex", "0");
-        div.setAttribute("aria-label", 
-            item.type === "dir" 
-                ? `Folder, ${item.name === "../" ? "back" : item.name}` 
-                : `File, ${item.name}. ${bytesReadable(item.size)}`
-        );
-        div.setAttribute("role", "button");
-
-        let name = document.createElement("span");
-        name.innerText = item.name;
-        name.classList.add("name");
-        div.appendChild(name);
-
-        let modified = document.createElement("span");
-        if (item.date) {
-            try {
-                modified.innerText = new Date(item.date).toLocaleString();
-            } catch (e) {
-                modified.innerText = "";
-            }
-        }
-        modified.classList.add("modified");
-        div.appendChild(modified);
-
-        let size = document.createElement("span");
-        size.innerText = bytesReadable(item.size);
-        size.classList.add("size");
-        div.appendChild(size);
-
-        if (item.type === "dir") {
-            div.addEventListener('click', async () => {
-                currentPath = item.path;
-                let activeElement = document.activeElement;
-                await getFileList();
-                if (activeElement === div) {
-                    let firstItem = document.querySelector("#sideload-list > .sideload-item:first-child");
-                    if (firstItem) firstItem.focus();
-                }
-            });
-        } else {
-            div.addEventListener('click', () => {
-                downloadFile(item);
-            });
-        }
-
-        document.querySelector("#sideload-list").appendChild(div);
+function handleSideloadItemClick(type, path, name) {
+    if (type === 'dir') {
+        currentPath = path;
+        getSideloadFileList();
+    } else {
+        downloadSideloadFile(path, name);
     }
 }
 
-function downloadFile(item) {
+function downloadSideloadFile(path, filename) {
     try {
         let url;
-        if (host.startsWith('http://') || host.startsWith('https://')) {
-            url = new URL(host);
+        if (sideloadHost.startsWith('http://') || sideloadHost.startsWith('https://')) {
+            url = new URL(sideloadHost);
         } else {
-            url = new URL(`http://${host}`);
+            url = new URL(`http://${sideloadHost}`);
         }
         
-        url.pathname = item.path;
+        url.pathname = path;
+        url.searchParams.set('action', 'download');
         
-        // Try different download parameters
-        const downloadParams = [
-            { action: "download" },
-            { download: "1" },
-            { dl: "1" },
-            { }  // Direct file access
-        ];
+        const a = document.createElement('a');
+        a.href = url.toString();
+        a.download = filename;
+        a.target = '_blank';
+        a.click();
         
-        // Try the first approach
-        const downloadUrl = new URL(url.toString());
-        downloadUrl.searchParams.set("action", "download");
-        
-        const aElement = document.createElement('a');
-        aElement.setAttribute('download', item.name);
-        aElement.href = downloadUrl.toString();
-        aElement.setAttribute('target', '_blank');
-        aElement.click();
-        
-        // Show feedback
-        showNotification(`Downloading ${item.name}...`, 'success');
-        
+        showNotification(`Downloading ${filename}...`);
     } catch (error) {
-        console.error("Download failed:", error);
-        showNotification(`Failed to download ${item.name}: ${error.message}`, 'error');
+        console.error('Download failed:', error);
+        alert(`Failed to download ${filename}: ${error.message}`);
     }
 }
 
-function showNotification(message, type = 'info') {
-    // Simple notification system
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: 6px;
-        color: white;
-        font-weight: 500;
-        z-index: 2000;
-        max-width: 300px;
-        background-color: ${type === 'error' ? 'var(--color-alert)' : 'var(--color-success)'};
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        animation: slideIn 0.3s ease;
-    `;
+// Settings Management
+function openSettings() {
+    document.getElementById('settings-overlay').style.display = 'grid';
+    document.getElementById('left').setAttribute('inert', 'true');
+    document.getElementById('right').setAttribute('inert', 'true');
+    document.getElementById('settings').focus();
+}
+
+function closeSettings() {
+    document.getElementById('settings-overlay').style.display = 'none';
+    document.getElementById('left').removeAttribute('inert');
+    document.getElementById('right').removeAttribute('inert');
+}
+
+function changeApiServer() {
+    const newServer = document.getElementById('api-server-input').value.trim();
     
-    notification.textContent = message;
-    document.body.appendChild(notification);
+    if (newServer) {
+        apiServer = newServer;
+        localStorage.setItem('apiServer', apiServer);
+        document.getElementById('api-server-display').textContent = apiServer;
+    } else {
+        apiServer = DEFAULT_API_SERVER;
+        localStorage.removeItem('apiServer');
+        document.getElementById('api-server-display').textContent = 'Default (GitHub)';
+    }
     
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
+    if (currentSection === 'apps') {
+        loadApps(currentCategory);
+    }
+    
+    closeSettings();
+}
+
+function changeSideloadServer() {
+    const newHost = document.getElementById('sideload-server-input').value.trim();
+    
+    if (newHost !== sideloadHost) {
+        sideloadHost = newHost;
+        localStorage.setItem('sideloadServer', sideloadHost);
+        currentPath = '/';
+        
+        if (currentSection === 'sideload') {
+            if (sideloadHost) {
+                getSideloadFileList();
+            } else {
+                showSideloadInstructions();
             }
-        }, 300);
-    }, 3000);
+        }
+    }
+    
+    closeSettings();
+}
+
+// Utility Functions
+function setLoading(loading) {
+    isLoading = loading;
+    // Add loading visual feedback if needed
 }
 
 function bytesReadable(bytes) {
-    if (!bytes || bytes === 0) return "0 B";
+    if (!bytes || bytes === 0) return '0 B';
     
-    const byteTypes = ["KB", "MB", "GB", "TB", "PB"];
-    let currentByteType = "B";
+    const byteTypes = ['KB', 'MB', 'GB', 'TB', 'PB'];
+    let currentByteType = 'B';
     
     for (let byteType of byteTypes) {
         if (bytes < 1024) break;
@@ -395,88 +459,35 @@ function bytesReadable(bytes) {
     return `${Math.round(bytes * 100) / 100} ${currentByteType}`;
 }
 
-function openSettings() {
-    document.querySelector("#sideload-server-input").value = host;
-    document.querySelector("#settings-overlay").style.display = "grid";
-    document.querySelector("#left").setAttribute("inert", "true");
-    document.querySelector("#right").setAttribute("inert", "true");
-    document.querySelector("#settings").focus();
+function formatDownloads(count) {
+    if (count >= 1000000) {
+        return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+        return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
 }
 
-function closeSettings() {
-    document.querySelector("#settings-overlay").style.display = "none";
-    document.querySelector("#left").removeAttribute("inert");
-    document.querySelector("#right").removeAttribute("inert");
-}
-
-async function changeServer() {
-    const newHost = document.querySelector("#sideload-server-input").value.trim();
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--color-link);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 2000;
+        font-weight: 500;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
     
-    if (newHost !== host) {
-        host = newHost;
-        localStorage.setItem("sideloadServer", host);
-        currentPath = "/";
-        
-        closeSettings();
-        
-        if (host) {
-            await getFileList();
-        } else {
-            showSetupInstructions();
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
         }
-    } else {
-        closeSettings();
-    }
+    }, 3000);
 }
-
-async function refreshList() {
-    if (!isLoading && host) {
-        await getFileList();
-        showNotification("File list refreshed", 'success');
-    }
-}
-
-// Event listeners
-document.querySelector("#settings-btn").addEventListener('click', openSettings);
-document.querySelector("#settings-overlay-backdrop").addEventListener('click', closeSettings);
-document.querySelector("#settings > .close").addEventListener('click', closeSettings);
-document.querySelector("#refresh-btn").addEventListener('click', refreshList);
-
-document.addEventListener('keydown', ev => {
-    if (ev.key === "Escape") closeSettings();
-});
-
-document.querySelector("#sideload-server-input").addEventListener('keydown', ev => {
-    if (ev.key === "Enter") changeServer();
-});
-
-document.querySelector("#sideload-server-change").addEventListener('click', changeServer);
-
-// Keyboard shortcuts
-document.addEventListener('keydown', ev => {
-    if ((ev.ctrlKey || ev.metaKey) && ev.key === 'r') {
-        ev.preventDefault();
-        refreshList();
-    }
-});
-
-// Auto-refresh every 30 seconds if connected
-setInterval(() => {
-    if (isConnected && host && !isLoading) {
-        getFileList();
-    }
-}, 30000);
-
-// Add notification styles to the page
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
