@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PicoZen Web Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1e1e1e; color: #d6d6d6; }
+        .test-item { margin: 10px 0; padding: 10px; background: #292929; border-radius: 5px; }
+        .success { border-left: 4px solid #4caf50; }
+        .error { border-left: 4px solid #ff5852; }
+    </style>
+</head>
+<body>
+    <h1>PicoZen Web Deployment Test</h1>
+    
+    <div class="test-item success">
+        <strong>✅ HTML Loading:</strong> This page is loading correctly
+    </div>
+    
+    <div class="test-item" id="css-test">
+        <strong>CSS Loading:</strong> <span id="css-status">Testing...</span>
+    </div>
+    
+    <div class="test-item" id="js-test">
+        <strong>JavaScript Loading:</strong> <span id="js-status">Testing...</span>
+    </div>
+    
+    <div class="test-item">
+        <strong>Main Site:</strong> <a href="./index.html" style="color: #428af8;">Go to PicoZen Web Interface</a>
+    </div>
+    
+    <script>
+        // Test CSS loading
+        const testElement = document.createElement('div');
+        testElement.style.display = 'none';
+        testElement.className = 'test-css-class';
+        document.body.appendChild(testElement);
+        
+        // Try to load the main CSS file
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = './style.css';
+        link.onload = function() {
+            document.getElementById('css-status').textContent = '✅ CSS file loaded successfully';
+            document.getElementById('css-test').className = 'test-item success';
+        };
+        link.onerror = function() {
+            document.getElementById('css-status').textContent = '❌ CSS file failed to load';
+            document.getElementById('css-test').className = 'test-item error';
+        };
+        document.head.appendChild(link);
+        
+        // Test JavaScript
+        try {
+            fetch('./script.js')
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('js-status').textContent = '✅ JavaScript file accessible';
+                        document.getElementById('js-test').className = 'test-item success';
+                    } else {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('js-status').textContent = '❌ JavaScript file failed: ' + error.message;
+                    document.getElementById('js-test').className = 'test-item error';
+                });
+        } catch (error) {
+            document.getElementById('js-status').textContent = '❌ JavaScript test failed: ' + error.message;
+            document.getElementById('js-test').className = 'test-item error';
+        }
+        
+        console.log('Test page loaded at:', new Date().toISOString());
+        console.log('Current URL:', window.location.href);
+        console.log('Base URL:', window.location.origin + window.location.pathname.replace('test.html', ''));
+    </script>
+</body>
+</html>
