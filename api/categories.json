@@ -1,0 +1,54 @@
+{
+  "success": true,
+  "categories": [
+    {
+      "id": 1,
+      "name": "Games",
+      "description": "VR Games and Entertainment",
+      "appCount": 0,
+      "displayOrder": 0
+    },
+    {
+      "id": 2,
+      "name": "Education",
+      "description": "Learning and Training Applications",
+      "appCount": 1,
+      "displayOrder": 1
+    },
+    {
+      "id": 3,
+      "name": "Productivity",
+      "description": "Work and Utility Applications",
+      "appCount": 0,
+      "displayOrder": 2
+    },
+    {
+      "id": 4,
+      "name": "Social",
+      "description": "Communication and Social VR",
+      "appCount": 0,
+      "displayOrder": 3
+    },
+    {
+      "id": 5,
+      "name": "Health & Fitness",
+      "description": "Exercise and Wellness Apps",
+      "appCount": 0,
+      "displayOrder": 4
+    },
+    {
+      "id": 6,
+      "name": "Entertainment",
+      "description": "Media and Video Applications",
+      "appCount": 0,
+      "displayOrder": 5
+    },
+    {
+      "id": 7,
+      "name": "Tools",
+      "description": "System Utilities and Tools",
+      "appCount": 0,
+      "displayOrder": 6
+    }
+  ]
+}
