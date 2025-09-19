@@ -6,6 +6,7 @@ let filesUrl = localStorage.getItem("filesServerUrl") || DEFAULT_FILES_URL;
 let currentPath = "/";
 let itemList = [];
 let isConnected = false;
+let isLoading = false;
 
 // Initialize the app
 init();
@@ -33,13 +34,31 @@ function showSetupInstructions() {
     `;
 }
 
+function setLoading(loading) {
+    isLoading = loading;
+    document.body.classList.toggle('loading', loading);
+    
+    if (loading) {
+        document.querySelector("#sideload-list").style.display = "none";
+        document.querySelector("#sideload-error").style.display = "grid";
+        document.querySelector("#sideload-error > span").innerHTML = `
+            <strong>Connecting...</strong><br><br>
+            Please wait while we connect to your headset.
+        `;
+    }
+}
+
 async function getFileList() {
+    if (isLoading) return;
+    
     itemList = [];
     
     if (!host) {
         showSetupInstructions();
         return;
     }
+
+    setLoading(true);
 
     try {
         // Construct the URL for the file server
@@ -56,24 +75,58 @@ async function getFileList() {
             url.pathname = currentPath;
         }
         
-        // Add API endpoint for file listing
-        url.searchParams.set("action", "list");
+        // Try different API endpoints that might work
+        const endpoints = [
+            { action: "list", format: "json" },
+            { list: "1" },
+            { }  // Just try the base URL
+        ];
         
-        console.log("Fetching from:", url.toString());
+        let data = null;
+        let lastError = null;
         
-        let res = await fetch(url.toString(), {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-                'Accept': 'application/json',
-            }
-        });
+        for (let params of endpoints) {
+            try {
+                const testUrl = new URL(url.toString());
+                Object.keys(params).forEach(key => {
+                    testUrl.searchParams.set(key, params[key]);
+                });
+                
+                console.log("Trying endpoint:", testUrl.toString());
+                
+                let res = await fetch(testUrl.toString(), {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'application/json, text/html, */*',
+                    },
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                });
 
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await res.json();
+                    break;
+                } else {
+                    // Try to parse as text and see if it's HTML with file listings
+                    const text = await res.text();
+                    data = parseHTMLListing(text);
+                    if (data) break;
+                }
+            } catch (error) {
+                lastError = error;
+                console.warn(`Endpoint failed:`, error.message);
+            }
         }
 
-        let data = await res.json();
+        if (!data) {
+            throw lastError || new Error("No valid response from any endpoint");
+        }
+
         isConnected = true;
 
         // Handle back navigation
@@ -122,6 +175,14 @@ async function getFileList() {
         // Show error message with helpful information
         document.querySelector("#sideload-list").style.display = "none";
         document.querySelector("#sideload-error").style.display = "grid";
+        
+        let errorMsg = error.message;
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            errorMsg = "Network connection failed";
+        } else if (error.name === 'AbortError') {
+            errorMsg = "Connection timeout";
+        }
+        
         document.querySelector("#sideload-error > span").innerHTML = `
             <strong>Connection Failed</strong><br><br>
             Could not connect to: <code>${host}</code><br><br>
@@ -131,12 +192,47 @@ async function getFileList() {
             • Verify the IP address is correct<br>
             • Ensure both devices are on the same network<br>
             • Try accessing <a href="http://${host}" target="_blank">http://${host}</a> directly<br><br>
-            <em>Error: ${error.message}</em>
+            <em>Error: ${errorMsg}</em>
         `;
+        
+        setLoading(false);
         return;
     }
 
+    setLoading(false);
     renderFileList();
+}
+
+// Simple HTML directory listing parser (fallback)
+function parseHTMLListing(html) {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = doc.querySelectorAll('a[href]');
+        
+        const files = [];
+        const dirs = [];
+        
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            const name = link.textContent.trim();
+            
+            if (href && name && !href.startsWith('http') && name !== '../') {
+                if (href.endsWith('/')) {
+                    dirs.push({ name: name, path: href });
+                } else {
+                    files.push({ name: name, path: href });
+                }
+            }
+        });
+        
+        if (files.length > 0 || dirs.length > 0) {
+            return { files, dirs };
+        }
+    } catch (e) {
+        console.warn("Failed to parse HTML listing:", e);
+    }
+    return null;
 }
 
 function renderFileList() {
@@ -225,17 +321,63 @@ function downloadFile(item) {
         }
         
         url.pathname = item.path;
-        url.searchParams.set("action", "download");
+        
+        // Try different download parameters
+        const downloadParams = [
+            { action: "download" },
+            { download: "1" },
+            { dl: "1" },
+            { }  // Direct file access
+        ];
+        
+        // Try the first approach
+        const downloadUrl = new URL(url.toString());
+        downloadUrl.searchParams.set("action", "download");
         
         const aElement = document.createElement('a');
         aElement.setAttribute('download', item.name);
-        aElement.href = url.toString();
+        aElement.href = downloadUrl.toString();
         aElement.setAttribute('target', '_blank');
         aElement.click();
+        
+        // Show feedback
+        showNotification(`Downloading ${item.name}...`, 'success');
+        
     } catch (error) {
         console.error("Download failed:", error);
-        alert(`Failed to download ${item.name}: ${error.message}`);
+        showNotification(`Failed to download ${item.name}: ${error.message}`, 'error');
     }
+}
+
+function showNotification(message, type = 'info') {
+    // Simple notification system
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 6px;
+        color: white;
+        font-weight: 500;
+        z-index: 2000;
+        max-width: 300px;
+        background-color: ${type === 'error' ? 'var(--color-alert)' : 'var(--color-success)'};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        animation: slideIn 0.3s ease;
+    `;
+    
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
 }
 
 function bytesReadable(bytes) {
@@ -275,21 +417,30 @@ async function changeServer() {
         localStorage.setItem("sideloadServer", host);
         currentPath = "/";
         
-        // Show loading state
-        document.querySelector("#sideload-error > span").innerHTML = "Connecting...";
-        document.querySelector("#sideload-list").style.display = "none";
-        document.querySelector("#sideload-error").style.display = "grid";
+        closeSettings();
         
-        await getFileList();
+        if (host) {
+            await getFileList();
+        } else {
+            showSetupInstructions();
+        }
+    } else {
+        closeSettings();
     }
-    
-    closeSettings();
+}
+
+async function refreshList() {
+    if (!isLoading && host) {
+        await getFileList();
+        showNotification("File list refreshed", 'success');
+    }
 }
 
 // Event listeners
 document.querySelector("#settings-btn").addEventListener('click', openSettings);
 document.querySelector("#settings-overlay-backdrop").addEventListener('click', closeSettings);
 document.querySelector("#settings > .close").addEventListener('click', closeSettings);
+document.querySelector("#refresh-btn").addEventListener('click', refreshList);
 
 document.addEventListener('keydown', ev => {
     if (ev.key === "Escape") closeSettings();
@@ -301,17 +452,31 @@ document.querySelector("#sideload-server-input").addEventListener('keydown', ev 
 
 document.querySelector("#sideload-server-change").addEventListener('click', changeServer);
 
-// Add refresh functionality
+// Keyboard shortcuts
 document.addEventListener('keydown', ev => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key === 'r') {
         ev.preventDefault();
-        getFileList();
+        refreshList();
     }
 });
 
 // Auto-refresh every 30 seconds if connected
 setInterval(() => {
-    if (isConnected && host) {
+    if (isConnected && host && !isLoading) {
         getFileList();
     }
 }, 30000);
+
+// Add notification styles to the page
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
