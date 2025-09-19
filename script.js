@@ -1,5 +1,5 @@
 // Configuration
-const DEFAULT_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/mock-api';
+const DEFAULT_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/api';
 const LOCAL_API_SERVER = 'http://localhost:3000/api';
 
 // State management
@@ -111,27 +111,32 @@ async function loadApps(category = '') {
         
     } catch (error) {
         console.error('Error loading apps:', error);
-        appsList.innerHTML = `
-            <div class="error-message">
-                Failed to load apps. Using offline mode.<br>
-                <button onclick="loadApps('${category}')" style="margin-top: 10px; padding: 8px 16px; background: var(--color-link); color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Retry
-                </button>
-            </div>
-        `;
+        // Use mock data as fallback
+        apps = getMockApps(category);
+        renderApps();
     }
 }
 
 async function fetchAppsFromServer(category = '') {
     try {
-        let url = `${apiServer}/apps?limit=50`;
-        if (category) url += `&category=${encodeURIComponent(category)}`;
+        let url = `${apiServer}/apps.json`;
         
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        return data.success ? data.apps : null;
+        if (!data.success) throw new Error('API returned error');
+        
+        let filteredApps = data.apps;
+        
+        // Filter by category if specified
+        if (category) {
+            filteredApps = filteredApps.filter(app => 
+                app.category.toLowerCase() === category.toLowerCase()
+            );
+        }
+        
+        return filteredApps;
     } catch (error) {
         console.error('Server fetch failed:', error);
         return null;
@@ -146,7 +151,7 @@ function getMockApps(category = '') {
             developer: 'UbiSim',
             category: 'Education',
             shortDescription: 'Immersive VR nursing simulation platform for clinical training and skill development',
-            description: 'UbiSim is a VR nursing simulation platform that provides immersive clinical training experiences. Practice essential nursing skills in a safe, virtual environment with realistic patient scenarios, medical equipment, and clinical procedures.',
+            description: 'UbiSim is a VR nursing simulation platform that provides immersive clinical training experiences. Practice essential nursing skills in a safe, virtual environment with realistic patient scenarios, medical equipment, and clinical procedures.\n\nKey Features:\n• Immersive VR nursing simulations\n• Realistic patient interactions\n• Medical equipment training\n• Clinical procedure practice\n• Safe learning environment\n• Professional development tools\n• Comprehensive skill assessment\n\nPerfect for nursing education, professional development, and clinical skills training. Experience hands-on learning without real-world consequences.',
             version: '1.18.0.157',
             rating: 4.8,
             downloadCount: 1250,
@@ -169,7 +174,7 @@ function renderApps() {
     }
     
     appsList.innerHTML = apps.map(app => `
-        <div class="app-item" onclick="downloadApp('${app.downloadUrl || app.downloadUrl}', '${app.title}')">
+        <div class="app-item" onclick="showAppDetails(${app.id})">
             <div class="app-header">
                 <div class="app-icon" style="background-image: url('${app.iconUrl}'); background-size: cover;">
                     ${!app.iconUrl ? app.title.charAt(0) : ''}
@@ -190,6 +195,108 @@ function renderApps() {
             </button>
         </div>
     `).join('');
+}
+
+function showAppDetails(appId) {
+    const app = apps.find(a => a.id === appId);
+    if (!app) return;
+    
+    // Create a simple modal for app details
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+        <div style="
+            background: var(--bg-dark);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        ">
+            <button onclick="this.closest('div').parentNode.remove()" style="
+                position: absolute;
+                top: 15px;
+                right: 15px;
+                background: none;
+                border: none;
+                color: var(--color-text);
+                font-size: 24px;
+                cursor: pointer;
+            ">✖️</button>
+            
+            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+                <div style="
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 15px;
+                    background-image: url('${app.iconUrl}');
+                    background-size: cover;
+                    background-position: center;
+                "></div>
+                <div>
+                    <h2 style="margin: 0; color: white;">${app.title}</h2>
+                    <p style="margin: 5px 0; color: var(--color-text);">${app.developer}</p>
+                    <p style="margin: 5px 0; color: var(--color-link);">${app.category} • v${app.version}</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 30px; margin-bottom: 15px;">
+                    <div>
+                        <strong style="color: white;">Rating</strong><br>
+                        <span style="color: #ffd700;">${'⭐'.repeat(Math.floor(app.rating || 0))} ${(app.rating || 0).toFixed(1)}</span>
+                    </div>
+                    <div>
+                        <strong style="color: white;">Downloads</strong><br>
+                        <span style="color: var(--color-text);">${formatDownloads(app.downloadCount)}</span>
+                    </div>
+                    <div>
+                        <strong style="color: white;">Size</strong><br>
+                        <span style="color: var(--color-text);">${bytesReadable(app.fileSize)}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+                <h3 style="color: white; margin-bottom: 10px;">Description</h3>
+                <p style="color: var(--color-text); line-height: 1.6; white-space: pre-line;">${app.description || app.shortDescription}</p>
+            </div>
+            
+            <button onclick="downloadApp('${app.downloadUrl}', '${app.title}')" style="
+                width: 100%;
+                background: var(--color-link);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 15px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+            ">Download APK</button>
+        </div>
+    `;
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    document.body.appendChild(modal);
 }
 
 function filterByCategory(category) {
