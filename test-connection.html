@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoZen Connection Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .test-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .test-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .status.pending { background: #f39c12; color: white; }
+        .status.success { background: #27ae60; color: white; }
+        .status.error { background: #e74c3c; color: white; }
+        .test-content {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .url {
+            color: #3498db;
+            word-break: break-all;
+        }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+        }
+        .actions {
+            text-align: center;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🔧 PicoZen Connection Test</h1>
+            <p>Diagnostic tool for troubleshooting server connectivity issues</p>
+        </div>
+
+        <div class="test-card">
+            <div class="test-header">
+                <h3 class="test-title">🌐 Koyeb Server Test</h3>
+                <span id="koyeb-status" class="status pending">Pending</span>
+            </div>
+            <div class="test-content">
+                <div>Testing: <span class="url" id="koyeb-url">https://above-odella-john-barr-40e8cdf4.koyeb.app</span></div>
+                <div id="koyeb-log" class="log"></div>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <div class="test-header">
+                <h3 class="test-title">📡 API Endpoints Test</h3>
+                <span id="api-status" class="status pending">Pending</span>
+            </div>
+            <div class="test-content">
+                <div>Testing API endpoints for data retrieval</div>
+                <div id="api-log" class="log"></div>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <div class="test-header">
+                <h3 class="test-title">🔒 CORS Test</h3>
+                <span id="cors-status" class="status pending">Pending</span>
+            </div>
+            <div class="test-content">
+                <div>Testing Cross-Origin Resource Sharing configuration</div>
+                <div id="cors-log" class="log"></div>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <div class="test-header">
+                <h3 class="test-title">📱 Frontend Integration Test</h3>
+                <span id="frontend-status" class="status pending">Pending</span>
+            </div>
+            <div class="test-content">
+                <div>Testing complete data flow from server to frontend</div>
+                <div id="frontend-log" class="log"></div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" onclick="runAllTests()">🧪 Run All Tests</button>
+            <button class="btn" onclick="testKoyebServer()">🌐 Test Koyeb Only</button>
+            <button class="btn" onclick="clearLogs()">🗑️ Clear Logs</button>
+            <a href="index.html" class="btn">← Back to App Store</a>
+        </div>
+
+        <div class="test-card">
+            <div class="test-header">
+                <h3 class="test-title">ℹ️ Troubleshooting Guide</h3>
+            </div>
+            <div class="test-content">
+                <div><strong>Common Issues:</strong></div>
+                <div>• <span class="error">CORS errors:</span> Server needs proper CORS headers configured</div>
+                <div>• <span class="error">404 errors:</span> Check if Koyeb deployment is running</div>
+                <div>• <span class="error">Network errors:</span> Check internet connection and firewall</div>
+                <div>• <span class="warning">Slow responses:</span> Koyeb may be cold-starting (normal)</div>
+                <br>
+                <div><strong>Expected Results:</strong></div>
+                <div>• <span class="success">Koyeb Server:</span> Should return health status and CORS headers</div>
+                <div>• <span class="success">API Endpoints:</span> Should return app data in JSON format</div>
+                <div>• <span class="success">CORS Test:</span> Should allow cross-origin requests</div>
+                <div>• <span class="success">Frontend:</span> Should display apps without errors</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const KOYEB_SERVER = 'https://above-odella-john-barr-40e8cdf4.koyeb.app';
+        
+        function log(elementId, message, type = 'info') {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            logElement.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function setStatus(elementId, status) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${status}`;
+            element.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        function clearLogs() {
+            ['koyeb-log', 'api-log', 'cors-log', 'frontend-log'].forEach(id => {
+                document.getElementById(id).innerHTML = '';
+            });
+            ['koyeb-status', 'api-status', 'cors-status', 'frontend-status'].forEach(id => {
+                setStatus(id, 'pending');
+            });
+        }
+
+        async function testKoyebServer() {
+            log('koyeb-log', 'Testing Koyeb server connectivity...');
+            setStatus('koyeb-status', 'pending');
+
+            try {
+                // Test basic connectivity
+                log('koyeb-log', `Connecting to ${KOYEB_SERVER}...`);
+                const response = await fetch(`${KOYEB_SERVER}/api/health`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                log('koyeb-log', `Response status: ${response.status} ${response.statusText}`, 
+                    response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('koyeb-log', `Server version: ${data.version}`, 'success');
+                    log('koyeb-log', `Database status: ${data.database}`, 'success');
+                    log('koyeb-log', `CORS status: ${data.cors}`, 'success');
+                    setStatus('koyeb-status', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                log('koyeb-log', `Connection failed: ${error.message}`, 'error');
+                setStatus('koyeb-status', 'error');
+            }
+        }
+
+        async function testApiEndpoints() {
+            log('api-log', 'Testing API endpoints...');
+            setStatus('api-status', 'pending');
+
+            const endpoints = [
+                { path: '/api/health', name: 'Health Check' },
+                { path: '/api/apps', name: 'Apps List' },
+                { path: '/api/categories', name: 'Categories' },
+                { path: '/api/test', name: 'Test Endpoint' }
+            ];
+
+            let successCount = 0;
+
+            for (const endpoint of endpoints) {
+                try {
+                    log('api-log', `Testing ${endpoint.name}: ${endpoint.path}`);
+                    const response = await fetch(`${KOYEB_SERVER}${endpoint.path}`, {
+                        method: 'GET',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        log('api-log', `✅ ${endpoint.name}: ${response.status} - ${data.success ? 'Success' : 'Data received'}`, 'success');
+                        successCount++;
+                    } else {
+                        log('api-log', `❌ ${endpoint.name}: ${response.status} ${response.statusText}`, 'error');
+                    }
+                } catch (error) {
+                    log('api-log', `❌ ${endpoint.name}: ${error.message}`, 'error');
+                }
+            }
+
+            if (successCount === endpoints.length) {
+                setStatus('api-status', 'success');
+                log('api-log', `All ${endpoints.length} endpoints working correctly`, 'success');
+            } else {
+                setStatus('api-status', 'error');
+                log('api-log', `${successCount}/${endpoints.length} endpoints working`, 'warning');
+            }
+        }
+
+        async function testCORS() {
+            log('cors-log', 'Testing CORS configuration...');
+            setStatus('cors-status', 'pending');
+
+            try {
+                // Test preflight request
+                log('cors-log', 'Testing OPTIONS preflight request...');
+                const preflightResponse = await fetch(`${KOYEB_SERVER}/api/apps`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+
+                log('cors-log', `Preflight status: ${preflightResponse.status}`, 
+                    preflightResponse.ok ? 'success' : 'error');
+
+                // Check CORS headers
+                const corsHeaders = [
+                    'Access-Control-Allow-Origin',
+                    'Access-Control-Allow-Methods',
+                    'Access-Control-Allow-Headers'
+                ];
+
+                corsHeaders.forEach(header => {
+                    const value = preflightResponse.headers.get(header);
+                    if (value) {
+                        log('cors-log', `${header}: ${value}`, 'success');
+                    } else {
+                        log('cors-log', `Missing header: ${header}`, 'warning');
+                    }
+                });
+
+                // Test actual CORS request
+                log('cors-log', 'Testing actual CORS request...');
+                const corsResponse = await fetch(`${KOYEB_SERVER}/api/test`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (corsResponse.ok) {
+                    log('cors-log', 'CORS request successful', 'success');
+                    setStatus('cors-status', 'success');
+                } else {
+                    throw new Error(`CORS request failed: ${corsResponse.status}`);
+                }
+            } catch (error) {
+                log('cors-log', `CORS test failed: ${error.message}`, 'error');
+                setStatus('cors-status', 'error');
+            }
+        }
+
+        async function testFrontendIntegration() {
+            log('frontend-log', 'Testing frontend integration...');
+            setStatus('frontend-status', 'pending');
+
+            try {
+                // Test the same function the frontend uses
+                log('frontend-log', 'Testing app data retrieval...');
+                const response = await fetch(`${KOYEB_SERVER}/api/apps?limit=10`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error('API returned error: ' + (data.message || 'Unknown error'));
+                }
+
+                const apps = Array.isArray(data.apps) ? data.apps : [];
+                log('frontend-log', `Retrieved ${apps.length} apps successfully`, 'success');
+
+                // Test app data structure
+                if (apps.length > 0) {
+                    const app = apps[0];
+                    const requiredFields = ['id', 'title', 'developer', 'category'];
+                    const missingFields = requiredFields.filter(field => !app[field]);
+                    
+                    if (missingFields.length === 0) {
+                        log('frontend-log', 'App data structure is valid', 'success');
+                        log('frontend-log', `Sample app: ${app.title} by ${app.developer}`, 'success');
+                    } else {
+                        log('frontend-log', `Missing fields: ${missingFields.join(', ')}`, 'warning');
+                    }
+                }
+
+                setStatus('frontend-status', 'success');
+                log('frontend-log', 'Frontend integration test passed', 'success');
+            } catch (error) {
+                log('frontend-log', `Integration test failed: ${error.message}`, 'error');
+                setStatus('frontend-status', 'error');
+            }
+        }
+
+        async function runAllTests() {
+            clearLogs();
+            
+            log('koyeb-log', '🚀 Starting comprehensive connectivity test...');
+            log('api-log', '🚀 Starting API endpoint tests...');
+            log('cors-log', '🚀 Starting CORS configuration tests...');
+            log('frontend-log', '🚀 Starting frontend integration tests...');
+
+            // Run tests sequentially to avoid overwhelming the server
+            await testKoyebServer();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testApiEndpoints();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testCORS();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testFrontendIntegration();
+            
+            // Summary
+            const statuses = ['koyeb-status', 'api-status', 'cors-status', 'frontend-status'];
+            const results = statuses.map(id => document.getElementById(id).textContent.toLowerCase());
+            const successCount = results.filter(status => status === 'success').length;
+            
+            console.log(`🎯 Test Summary: ${successCount}/${results.length} tests passed`);
+            
+            if (successCount === results.length) {
+                console.log('🎉 All tests passed! PicoZen is working correctly.');
+            } else {
+                console.log('⚠️ Some tests failed. Check the logs above for details.');
+            }
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>
