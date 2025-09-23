@@ -102,17 +102,17 @@ function safeNumber(value, defaultValue = 0) {
 function normalizeAppData(app) {
     return {
         id: app.id || Math.random(),
-        title: app.title || app.name || 'Unknown App',
+        title: app.title || app.packageName || 'Unknown App',
         developer: app.developer || app.author || 'Unknown Developer',
-        category: app.category || 'Other',
+        category: app.category || app.categoryName || 'Other',
         shortDescription: app.shortDescription || app.short_description || app.description || 'No description available',
         description: app.description || app.shortDescription || app.short_description || 'No description available',
-        version: app.version || '1.0.0',
+        version: app.version || app.versionName || '1.0.0',
         rating: safeNumber(app.rating, 0),
         downloadCount: safeNumber(app.downloadCount || app.download_count, 0),
-        fileSize: safeNumber(app.fileSize || app.file_size, 0),
-        iconUrl: app.iconUrl || app.icon_url || '',
-        downloadUrl: app.downloadUrl || app.download_url || app.url || '',
+        fileSize: safeNumber(app.fileSize || app.file_size || app.fileSizeFormatted, 0),
+        iconUrl: app.iconUrl || app.icon_url || app.iconUri || '',
+        downloadUrl: app.downloadUrl || app.download_url || app.url || app.downloadUri || '',
         featured: Boolean(app.featured)
     };
 }
@@ -152,8 +152,18 @@ async function loadApps(category = '') {
 
 async function fetchAppsFromServer(category = '') {
     try {
-        let url = `${apiServer}/api/apps?limit=50`;
-        if (category) url += `&category=${encodeURIComponent(category)}`;
+        // Updated to match the server's actual endpoint structure
+        let url = `${apiServer}/apps`;
+        const params = new URLSearchParams();
+        
+        if (category && category.toLowerCase() !== 'all') {
+            params.append('category', category);
+        }
+        params.append('limit', '50');
+        
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
         
         console.log('🔄 Fetching from server:', url);
         
@@ -167,6 +177,7 @@ async function fetchAppsFromServer(category = '') {
         });
         
         console.log('📡 Server response status:', response.status);
+        console.log('📡 Response headers:', [...response.headers.entries()]);
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -199,9 +210,9 @@ async function fetchAppsFromFallback(category = '') {
         let filteredApps = data.apps;
         
         // Filter by category if specified
-        if (category) {
+        if (category && category.toLowerCase() !== 'all') {
             filteredApps = filteredApps.filter(app => 
-                app.category.toLowerCase() === category.toLowerCase()
+                (app.category || app.categoryName || '').toLowerCase() === category.toLowerCase()
             );
         }
         
@@ -246,7 +257,9 @@ function getMockApps(category = '') {
         }
     ];
     
-    return category ? mockApps.filter(app => app.category === category) : mockApps;
+    return category && category.toLowerCase() !== 'all' ? 
+        mockApps.filter(app => app.category.toLowerCase() === category.toLowerCase()) : 
+        mockApps;
 }
 
 function renderApps() {
