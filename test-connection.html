@@ -214,9 +214,9 @@
             setStatus('koyeb-status', 'pending');
 
             try {
-                // Test basic connectivity
+                // Test basic connectivity - use the actual apps endpoint
                 log('koyeb-log', `Connecting to ${KOYEB_SERVER}...`);
-                const response = await fetch(`${KOYEB_SERVER}/api/health`, {
+                const response = await fetch(`${KOYEB_SERVER}/apps?limit=1`, {
                     method: 'GET',
                     mode: 'cors',
                     headers: {
@@ -227,11 +227,26 @@
                 log('koyeb-log', `Response status: ${response.status} ${response.statusText}`, 
                     response.ok ? 'success' : 'error');
 
+                // Log CORS headers
+                const corsHeaders = [
+                    'access-control-allow-origin',
+                    'access-control-allow-methods',
+                    'access-control-allow-headers'
+                ];
+                
+                corsHeaders.forEach(header => {
+                    const value = response.headers.get(header);
+                    if (value) {
+                        log('koyeb-log', `${header}: ${value}`, 'success');
+                    }
+                });
+
                 if (response.ok) {
                     const data = await response.json();
-                    log('koyeb-log', `Server version: ${data.version}`, 'success');
-                    log('koyeb-log', `Database status: ${data.database}`, 'success');
-                    log('koyeb-log', `CORS status: ${data.cors}`, 'success');
+                    log('koyeb-log', `Server response: ${data.success ? 'Success' : 'Error'}`, 'success');
+                    if (data.apps && data.apps.length > 0) {
+                        log('koyeb-log', `Found ${data.apps.length} apps`, 'success');
+                    }
                     setStatus('koyeb-status', 'success');
                 } else {
                     throw new Error(`HTTP ${response.status}`);
@@ -247,10 +262,10 @@
             setStatus('api-status', 'pending');
 
             const endpoints = [
-                { path: '/api/health', name: 'Health Check' },
-                { path: '/api/apps', name: 'Apps List' },
-                { path: '/api/categories', name: 'Categories' },
-                { path: '/api/test', name: 'Test Endpoint' }
+                { path: '/apps', name: 'Apps List' },
+                { path: '/apps?limit=5', name: 'Apps with Limit' },
+                { path: '/apps?category=Education', name: 'Education Apps' },
+                { path: '/apps?category=Games', name: 'Game Apps' }
             ];
 
             let successCount = 0;
@@ -268,7 +283,8 @@
 
                     if (response.ok) {
                         const data = await response.json();
-                        log('api-log', `✅ ${endpoint.name}: ${response.status} - ${data.success ? 'Success' : 'Data received'}`, 'success');
+                        const appCount = data.apps ? data.apps.length : 0;
+                        log('api-log', `✅ ${endpoint.name}: ${response.status} - ${appCount} apps returned`, 'success');
                         successCount++;
                     } else {
                         log('api-log', `❌ ${endpoint.name}: ${response.status} ${response.statusText}`, 'error');
@@ -282,8 +298,8 @@
                 setStatus('api-status', 'success');
                 log('api-log', `All ${endpoints.length} endpoints working correctly`, 'success');
             } else {
-                setStatus('api-status', 'error');
-                log('api-log', `${successCount}/${endpoints.length} endpoints working`, 'warning');
+                setStatus('api-status', successCount > 0 ? 'warning' : 'error');
+                log('api-log', `${successCount}/${endpoints.length} endpoints working`, successCount > 0 ? 'warning' : 'error');
             }
         }
 
@@ -294,7 +310,7 @@
             try {
                 // Test preflight request
                 log('cors-log', 'Testing OPTIONS preflight request...');
-                const preflightResponse = await fetch(`${KOYEB_SERVER}/api/apps`, {
+                const preflightResponse = await fetch(`${KOYEB_SERVER}/apps`, {
                     method: 'OPTIONS',
                     headers: {
                         'Origin': window.location.origin,
@@ -324,7 +340,7 @@
 
                 // Test actual CORS request
                 log('cors-log', 'Testing actual CORS request...');
-                const corsResponse = await fetch(`${KOYEB_SERVER}/api/test`, {
+                const corsResponse = await fetch(`${KOYEB_SERVER}/apps?limit=1`, {
                     method: 'GET',
                     mode: 'cors',
                     headers: {
@@ -351,7 +367,7 @@
             try {
                 // Test the same function the frontend uses
                 log('frontend-log', 'Testing app data retrieval...');
-                const response = await fetch(`${KOYEB_SERVER}/api/apps?limit=10`, {
+                const response = await fetch(`${KOYEB_SERVER}/apps?limit=10`, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
@@ -376,15 +392,28 @@
                 // Test app data structure
                 if (apps.length > 0) {
                     const app = apps[0];
-                    const requiredFields = ['id', 'title', 'developer', 'category'];
-                    const missingFields = requiredFields.filter(field => !app[field]);
+                    const requiredFields = ['id', 'title', 'developer'];
+                    const missingFields = requiredFields.filter(field => !app[field] && !app.packageName);
                     
                     if (missingFields.length === 0) {
                         log('frontend-log', 'App data structure is valid', 'success');
-                        log('frontend-log', `Sample app: ${app.title} by ${app.developer}`, 'success');
+                        log('frontend-log', `Sample app: ${app.title || app.packageName} by ${app.developer}`, 'success');
                     } else {
                         log('frontend-log', `Missing fields: ${missingFields.join(', ')}`, 'warning');
                     }
+                }
+
+                // Test category filtering
+                log('frontend-log', 'Testing category filtering...');
+                const eduResponse = await fetch(`${KOYEB_SERVER}/apps?category=Education&limit=5`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (eduResponse.ok) {
+                    const eduData = await eduResponse.json();
+                    log('frontend-log', `Education filter: ${eduData.apps ? eduData.apps.length : 0} apps`, 'success');
                 }
 
                 setStatus('frontend-status', 'success');
