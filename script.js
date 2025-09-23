@@ -1,5 +1,5 @@
 // Configuration
-const DEFAULT_API_SERVER = 'https://picozen-api.netlify.app/api';
+const DEFAULT_API_SERVER = 'https://above-odella-john-barr-40e8cdf4.koyeb.app/api';
 const FALLBACK_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/api';
 
 // State management
@@ -19,7 +19,7 @@ init();
 async function init() {
     // Load saved API server
     document.getElementById('api-server-input').value = apiServer === DEFAULT_API_SERVER ? '' : apiServer;
-    document.getElementById('api-server-display').textContent = apiServer === DEFAULT_API_SERVER ? 'Default (Netlify)' : apiServer;
+    document.getElementById('api-server-display').textContent = apiServer === DEFAULT_API_SERVER ? 'Default (Koyeb)' : apiServer;
     
     // Load saved sideload server
     document.getElementById('sideload-server-input').value = sideloadHost;
@@ -101,9 +101,9 @@ async function loadApps(category = '') {
         // Try to load from API server first
         let appsData = await fetchAppsFromServer(category);
         
-        // Fallback to GitHub Pages API if Netlify fails
+        // Fallback to GitHub Pages API if Koyeb fails
         if (!appsData) {
-            console.log('Netlify API failed, trying fallback...');
+            console.log('Koyeb API failed, trying fallback...');
             appsData = await fetchAppsFromFallback(category);
         }
         
@@ -135,7 +135,7 @@ async function fetchAppsFromServer(category = '') {
         const data = await response.json();
         return data.success ? data.apps : null;
     } catch (error) {
-        console.error('Netlify API fetch failed:', error);
+        console.error('Koyeb API fetch failed:', error);
         return null;
     }
 }
@@ -174,7 +174,7 @@ function getMockApps(category = '') {
             developer: 'UbiSim',
             category: 'Education',
             shortDescription: 'Immersive VR nursing simulation platform for clinical training and skill development',
-            description: 'UbiSim is a VR nursing simulation platform that provides immersive clinical training experiences. Practice essential nursing skills in a safe, virtual environment with realistic patient scenarios, medical equipment, and clinical procedures.\n\nKey Features:\n• Immersive VR nursing simulations\n• Realistic patient interactions\n• Medical equipment training\n• Clinical procedure practice\n• Safe learning environment\n• Professional development tools\n• Comprehensive skill assessment\n\nPerfect for nursing education, professional development, and clinical skills training. Experience hands-on learning without real-world consequences.',
+            description: 'UbiSim is a VR nursing simulation platform that provides immersive clinical training experiences. Practice essential nursing skills in a safe, virtual environment with realistic patient scenarios, medical equipment, and clinical procedures.\\n\\nKey Features:\\n• Immersive VR nursing simulations\\n• Realistic patient interactions\\n• Medical equipment training\\n• Clinical procedure practice\\n• Safe learning environment\\n• Professional development tools\\n• Comprehensive skill assessment\\n\\nPerfect for nursing education, professional development, and clinical skills training. Experience hands-on learning without real-world consequences.',
             version: '1.18.0.157',
             rating: 4.8,
             downloadCount: 1250,
@@ -538,7 +538,7 @@ function changeApiServer() {
     } else {
         apiServer = DEFAULT_API_SERVER;
         localStorage.removeItem('apiServer');
-        document.getElementById('api-server-display').textContent = 'Default (Netlify)';
+        document.getElementById('api-server-display').textContent = 'Default (Koyeb)';
     }
     
     if (currentSection === 'apps') {
