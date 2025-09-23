@@ -92,6 +92,31 @@ function showSection(section) {
     }
 }
 
+// Utility function to safely convert to number
+function safeNumber(value, defaultValue = 0) {
+    const num = parseFloat(value);
+    return isNaN(num) ? defaultValue : num;
+}
+
+// Utility function to validate and normalize app data
+function normalizeAppData(app) {
+    return {
+        id: app.id || Math.random(),
+        title: app.title || app.name || 'Unknown App',
+        developer: app.developer || app.author || 'Unknown Developer',
+        category: app.category || 'Other',
+        shortDescription: app.shortDescription || app.description || 'No description available',
+        description: app.description || app.shortDescription || 'No description available',
+        version: app.version || '1.0.0',
+        rating: safeNumber(app.rating, 0),
+        downloadCount: safeNumber(app.downloadCount, 0),
+        fileSize: safeNumber(app.fileSize, 0),
+        iconUrl: app.iconUrl || app.icon || '',
+        downloadUrl: app.downloadUrl || app.download_url || app.url || '',
+        featured: Boolean(app.featured)
+    };
+}
+
 // App Store Functionality
 async function loadApps(category = '') {
     const appsList = document.getElementById('apps-list');
@@ -113,13 +138,14 @@ async function loadApps(category = '') {
             appsData = getMockApps(category);
         }
         
-        apps = appsData;
+        // Normalize app data to ensure all properties are properly formatted
+        apps = appsData.map(app => normalizeAppData(app));
         renderApps();
         
     } catch (error) {
         console.error('Error loading apps:', error);
         // Use mock data as final fallback
-        apps = getMockApps(category);
+        apps = getMockApps(category).map(app => normalizeAppData(app));
         renderApps();
     }
 }
@@ -129,11 +155,26 @@ async function fetchAppsFromServer(category = '') {
         let url = `${apiServer}/apps?limit=50`;
         if (category) url += `&category=${encodeURIComponent(category)}`;
         
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const data = await response.json();
-        return data.success ? data.apps : null;
+        
+        if (!data.success) {
+            throw new Error('API returned error: ' + (data.message || 'Unknown error'));
+        }
+        
+        return Array.isArray(data.apps) ? data.apps : [];
     } catch (error) {
         console.error('Koyeb API fetch failed:', error);
         return null;
@@ -196,7 +237,13 @@ function renderApps() {
         return;
     }
     
-    appsList.innerHTML = apps.map(app => `
+    appsList.innerHTML = apps.map(app => {
+        // Safely convert rating to number and format it
+        const rating = safeNumber(app.rating, 0);
+        const ratingStars = '⭐'.repeat(Math.floor(rating));
+        const ratingText = rating.toFixed(1);
+        
+        return `
         <div class="app-item" onclick="showAppDetails(${app.id})">
             <div class="app-header">
                 <div class="app-icon" style="background-image: url('${app.iconUrl}'); background-size: cover;">
@@ -208,21 +255,27 @@ function renderApps() {
                 </div>
             </div>
             <div class="app-category">${app.category}</div>
-            <div class="app-description">${app.shortDescription || app.description || 'No description available'}</div>
+            <div class="app-description">${app.shortDescription}</div>
             <div class="app-stats">
-                <div class="app-rating">${'⭐'.repeat(Math.floor(app.rating || 0))} ${(app.rating || 0).toFixed(1)}</div>
+                <div class="app-rating">${ratingStars} ${ratingText}</div>
                 <div class="app-downloads">${formatDownloads(app.downloadCount)} downloads</div>
             </div>
             <button class="download-btn" onclick="event.stopPropagation(); downloadApp('${app.downloadUrl}', '${app.title}')">
                 Download APK
             </button>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function showAppDetails(appId) {
     const app = apps.find(a => a.id === appId);
     if (!app) return;
+    
+    // Safely convert rating to number for display
+    const rating = safeNumber(app.rating, 0);
+    const ratingStars = '⭐'.repeat(Math.floor(rating));
+    const ratingText = rating.toFixed(1);
     
     // Create a simple modal for app details
     const modal = document.createElement('div');
@@ -281,7 +334,7 @@ function showAppDetails(appId) {
                 <div style="display: flex; gap: 30px; margin-bottom: 15px;">
                     <div>
                         <strong style="color: white;">Rating</strong><br>
-                        <span style="color: #ffd700;">${'⭐'.repeat(Math.floor(app.rating || 0))} ${(app.rating || 0).toFixed(1)}</span>
+                        <span style="color: #ffd700;">${ratingStars} ${ratingText}</span>
                     </div>
                     <div>
                         <strong style="color: white;">Downloads</strong><br>
@@ -296,7 +349,7 @@ function showAppDetails(appId) {
             
             <div style="margin-bottom: 25px;">
                 <h3 style="color: white; margin-bottom: 10px;">Description</h3>
-                <p style="color: var(--color-text); line-height: 1.6; white-space: pre-line;">${app.description || app.shortDescription}</p>
+                <p style="color: var(--color-text); line-height: 1.6; white-space: pre-line;">${app.description}</p>
             </div>
             
             <button onclick="downloadApp('${app.downloadUrl}', '${app.title}')" style="
