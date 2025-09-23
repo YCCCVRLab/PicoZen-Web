@@ -1,0 +1,41 @@
+{
+  "name": "picozen-server",
+  "version": "1.0.0",
+  "description": "PicoZen VR App Store API Server with CORS support",
+  "main": "server-cors-fix.js",
+  "scripts": {
+    "start": "node server-cors-fix.js",
+    "dev": "nodemon server-cors-fix.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "vr",
+    "apps",
+    "api",
+    "cors",
+    "express",
+    "koyeb",
+    "picozen"
+  ],
+  "author": "YCCC VR Lab",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YCCCVRLab/PicoZen-Web.git"
+  },
+  "homepage": "https://ycccrlab.github.io/PicoZen-Web/",
+  "bugs": {
+    "url": "https://github.com/YCCCVRLab/PicoZen-Web/issues"
+  }
+}
