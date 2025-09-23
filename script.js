@@ -1,5 +1,5 @@
 // Configuration
-const DEFAULT_API_SERVER = 'https://above-odella-john-barr-40e8cdf4.koyeb.app/api';
+const DEFAULT_API_SERVER = 'https://above-odella-john-barr-40e8cdf4.koyeb.app';
 const FALLBACK_API_SERVER = 'https://ycccrlab.github.io/PicoZen-Web/api';
 
 // State management
@@ -105,13 +105,13 @@ function normalizeAppData(app) {
         title: app.title || app.name || 'Unknown App',
         developer: app.developer || app.author || 'Unknown Developer',
         category: app.category || 'Other',
-        shortDescription: app.shortDescription || app.description || 'No description available',
-        description: app.description || app.shortDescription || 'No description available',
+        shortDescription: app.shortDescription || app.short_description || app.description || 'No description available',
+        description: app.description || app.shortDescription || app.short_description || 'No description available',
         version: app.version || '1.0.0',
         rating: safeNumber(app.rating, 0),
-        downloadCount: safeNumber(app.downloadCount, 0),
-        fileSize: safeNumber(app.fileSize, 0),
-        iconUrl: app.iconUrl || app.icon || '',
+        downloadCount: safeNumber(app.downloadCount || app.download_count, 0),
+        fileSize: safeNumber(app.fileSize || app.file_size, 0),
+        iconUrl: app.iconUrl || app.icon_url || '',
         downloadUrl: app.downloadUrl || app.download_url || app.url || '',
         featured: Boolean(app.featured)
     };
@@ -128,7 +128,7 @@ async function loadApps(category = '') {
         
         // Fallback to GitHub Pages API if Koyeb fails
         if (!appsData) {
-            console.log('Koyeb API failed, trying fallback...');
+            console.log('Primary API failed, trying fallback...');
             appsData = await fetchAppsFromFallback(category);
         }
         
@@ -152,8 +152,10 @@ async function loadApps(category = '') {
 
 async function fetchAppsFromServer(category = '') {
     try {
-        let url = `${apiServer}/apps?limit=50`;
+        let url = `${apiServer}/api/apps?limit=50`;
         if (category) url += `&category=${encodeURIComponent(category)}`;
+        
+        console.log('🔄 Fetching from server:', url);
         
         const response = await fetch(url, {
             method: 'GET',
@@ -164,11 +166,14 @@ async function fetchAppsFromServer(category = '') {
             mode: 'cors'
         });
         
+        console.log('📡 Server response status:', response.status);
+        
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
+        console.log('✅ Server data received:', data);
         
         if (!data.success) {
             throw new Error('API returned error: ' + (data.message || 'Unknown error'));
@@ -176,7 +181,7 @@ async function fetchAppsFromServer(category = '') {
         
         return Array.isArray(data.apps) ? data.apps : [];
     } catch (error) {
-        console.error('Koyeb API fetch failed:', error);
+        console.error('❌ Server API fetch failed:', error);
         return null;
     }
 }
@@ -222,6 +227,21 @@ function getMockApps(category = '') {
             fileSize: 157286400,
             iconUrl: 'https://scontent-lga3-3.oculuscdn.com/v/t64.5771-25/57570314_1220899138305712_3549230735456268391_n.jpg?stp=dst-jpg_q92_s720x720_tt6&_nc_cat=108&ccb=1-7&_nc_sid=6e7a0a&_nc_ohc=abiM3cUS1t0Q7kNvwEG6f1M&_nc_oc=Adlp9UfoNVCqrK-SF2vUQyBzNMkhhmJ3jvqEt7cfDM_qYnrQBVzTmcC-E25FLjrIr8Y&_nc_zt=3&_nc_ht=scontent-lga3-3.oculuscdn.com&oh=00_AfbbeH7p7KL9MnwLkOJPJMiKRTOgGj_LNCz46TKiUK_knA&oe=68D3347B',
             downloadUrl: 'https://ubisimstreamingprod.blob.core.windows.net/builds/UbiSimPlayer-1.18.0.157.apk?sv=2023-11-03&spr=https,http&se=2026-01-22T13%3A54%3A34Z&sr=b&sp=r&sig=fWimVufXCv%2BG6peu4t4R1ooXF37BEGVm2IS9e%2Fntw%2BI%3D',
+            featured: true
+        },
+        {
+            id: 2,
+            title: 'YCCC VR Demo',
+            developer: 'YCCC VR Lab',
+            category: 'Education',
+            shortDescription: 'Educational VR demonstration app',
+            description: 'A demonstration VR application showcasing the capabilities of the PicoZen app store system. Features immersive environments and interactive elements designed for educational purposes.',
+            version: '1.0.0',
+            rating: 4.8,
+            downloadCount: 0,
+            fileSize: 75000000,
+            iconUrl: 'https://via.placeholder.com/512x512/4A90E2/FFFFFF?text=YCCC+VR',
+            downloadUrl: '#',
             featured: true
         }
     ];
@@ -390,7 +410,7 @@ function filterByCategory(category) {
 }
 
 function downloadApp(downloadUrl, appTitle) {
-    if (!downloadUrl) {
+    if (!downloadUrl || downloadUrl === '#') {
         alert('Download URL not available for this app');
         return;
     }
